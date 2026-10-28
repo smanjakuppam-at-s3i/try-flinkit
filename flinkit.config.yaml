@@ -1,0 +1,12 @@
+# flinkit config for the try-flinkit demo.
+#
+# The Makefile points FLINKIT_CONFIG at this file, so running the demo never
+# touches your real ~/.flinkit/config.yaml. The default profile talks to the
+# local Docker Flink cluster over its JobManager REST API.
+default: local-oss
+
+profiles:
+  local-oss:
+    source: oss
+    platform: oss
+    endpoint: http://localhost:8081

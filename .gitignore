@@ -1,0 +1,10 @@
+# Local flinkit overrides
+.flinkit/
+*.local.yaml
+
+# OS cruft
+.DS_Store
+
+# Editor
+.idea/
+.vscode/

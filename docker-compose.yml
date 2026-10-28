@@ -1,0 +1,52 @@
+name: try-flinkit
+
+# A minimal Apache Flink 1.20 session cluster for the flinkit demo.
+# `make up` starts the JobManager (web UI on :8081) and a TaskManager;
+# `make submit` runs the example SQL job against it.
+
+x-flink-common: &flink-common
+  image: flink:1.20
+  environment:
+    - |
+      FLINK_PROPERTIES=
+      jobmanager.rpc.address: jobmanager
+      rest.address: jobmanager
+      parallelism.default: 2
+      taskmanager.numberOfTaskSlots: 2
+      state.backend.type: rocksdb
+      state.backend.incremental: false
+      execution.checkpointing.interval: 10 s
+      execution.checkpointing.timeout: 10 min
+      execution.checkpointing.mode: EXACTLY_ONCE
+
+services:
+  jobmanager:
+    <<: *flink-common
+    command: jobmanager
+    ports:
+      - "8081:8081"
+    healthcheck:
+      # bash /dev/tcp probe — the Flink image ships bash but not curl.
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8081' 2>/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  taskmanager:
+    <<: *flink-common
+    command: taskmanager
+    depends_on:
+      jobmanager:
+        condition: service_healthy
+
+  # One-shot: submits jobs/slow-aggregation.sql to the running session cluster,
+  # then exits (the streaming job keeps running on the cluster). Run via
+  # `make submit` / `docker compose run --rm sql-client`, not `up`.
+  sql-client:
+    <<: *flink-common
+    command: ["/opt/flink/bin/sql-client.sh", "-f", "/opt/sql/slow-aggregation.sql"]
+    depends_on:
+      jobmanager:
+        condition: service_healthy
+    volumes:
+      - ./jobs:/opt/sql:ro
