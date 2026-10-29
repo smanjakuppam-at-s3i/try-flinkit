@@ -1,6 +1,6 @@
 # try-flinkit
 
-**See [flinkit](https://flinkit.dev) diagnose a real, misbehaving Apache Flink job in about five minutes — on your laptop, with Docker.**
+**See [flinkit](https://flinkit.org) diagnose a real, misbehaving Apache Flink job in about five minutes — on your laptop, with Docker.**
 
 flinkit is a vendor-neutral CLI for triaging Flink jobs: it reads a running
 job over the JobManager REST API and tells you *what's wrong and why* —
@@ -87,7 +87,7 @@ export HOMEBREW_GITHUB_API_TOKEN=<your token>
 brew install smanjakuppam-at-s3i/tap/flinkit
 ```
 
-Interested in access? Reach out at **hello@flinkit.dev**.
+Interested in access? Reach out at **hello@flinkit.org**.
 
 ## License
 
