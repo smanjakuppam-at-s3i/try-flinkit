@@ -20,21 +20,23 @@ load-stressed job so you can point flinkit at it and watch it work.
 
 ## Quickstart
 
+`make` just manages the local Flink cluster (Docker). You run **flinkit itself
+directly** — that's the whole point of the demo.
+
 ```sh
 git clone https://github.com/smanjakuppam-at-s3i/try-flinkit
 cd try-flinkit
 
-make up        # 1. start the Flink cluster  (web UI: http://localhost:8081)
-make submit    # 2. submit the example job
-make scan      # 3. list the job flinkit sees — copy the job id
-make inspect JOB=<job-id>     # 4. live triage  (the main event)
-```
+make up        # start the Flink cluster  (web UI: http://localhost:8081)
+make submit    # submit the example job
 
-Then try the one-shot diagnostics:
+# Point flinkit at this repo's config (once per shell) so it finds the cluster:
+export FLINKIT_CONFIG=$PWD/flinkit.config.yaml
 
-```sh
-make doctor                   # health + configuration findings
-make bottleneck JOB=<job-id>  # where the job is constrained, and why
+flinkit scan                       # list the job — copy its id
+flinkit inspect <job-id> --watch   # live triage (the main event)
+flinkit doctor                     # health + configuration findings
+flinkit bottleneck <job-id>        # where it's constrained, and why
 ```
 
 When you're done:
@@ -43,9 +45,11 @@ When you're done:
 make down      # stop the cluster and wipe its state
 ```
 
-> The `make` targets export `FLINKIT_CONFIG` pointing at this repo's
-> [`flinkit.config.yaml`](flinkit.config.yaml), so the demo talks to
-> `localhost:8081` without touching your own `~/.flinkit/config.yaml`.
+> `FLINKIT_CONFIG` points flinkit at this repo's
+> [`flinkit.config.yaml`](flinkit.config.yaml) (a `local-oss` profile →
+> `localhost:8081`), so the demo never touches your own
+> `~/.flinkit/config.yaml`. Prefer not to export it? Prefix a command instead:
+> `FLINKIT_CONFIG=$PWD/flinkit.config.yaml flinkit scan`.
 
 ## What you'll see
 

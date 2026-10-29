@@ -1,12 +1,11 @@
-# try-flinkit — watch flinkit diagnose a live, local Flink job.
+# try-flinkit — manage the local Flink cluster for the flinkit demo.
 #
-# Point flinkit at the repo-local config so the demo never touches ~/.flinkit.
-export FLINKIT_CONFIG := $(CURDIR)/flinkit.config.yaml
+# These targets only drive Docker. You run flinkit itself directly — see the
+# README. Point flinkit at this repo's config first (once per shell):
+#
+#   export FLINKIT_CONFIG=$(PWD)/flinkit.config.yaml
 
-# Job id for inspect/bottleneck:  make inspect JOB=<id>
-JOB ?=
-
-.PHONY: up submit down ps logs scan doctor inspect bottleneck help
+.PHONY: up submit down ps logs help
 
 up: ## Start the Flink cluster (web UI http://localhost:8081)
 	docker compose up -d jobmanager taskmanager
@@ -23,20 +22,8 @@ ps: ## Show cluster status
 logs: ## Tail the cluster logs
 	docker compose logs -f jobmanager taskmanager
 
-scan: ## List the jobs flinkit can see
-	flinkit scan
-
-doctor: ## Run flinkit's health + config checks
-	flinkit doctor
-
-inspect: ## Live triage of a job:  make inspect JOB=<job-id>
-	flinkit inspect $(JOB) --watch
-
-bottleneck: ## Bottleneck analysis of a job:  make bottleneck JOB=<job-id>
-	flinkit bottleneck $(JOB)
-
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) \
-		| awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-11s\033[0m %s\n",$$1,$$2}'
+		| awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-8s\033[0m %s\n",$$1,$$2}'
 
 .DEFAULT_GOAL := help

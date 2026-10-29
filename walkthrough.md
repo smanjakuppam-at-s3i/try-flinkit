@@ -1,7 +1,15 @@
 # Walkthrough: diagnosing the demo job with flinkit
 
 A narrated tour of the demo. It assumes you've installed flinkit and have
-Docker running. Every command is also a `make` target — both forms are shown.
+Docker running. `make` manages the local Flink cluster; everything else is
+flinkit run directly.
+
+First, point flinkit at this repo's config so it finds the local cluster (once
+per shell):
+
+```sh
+export FLINKIT_CONFIG=$PWD/flinkit.config.yaml
+```
 
 ## 1. Start the cluster
 
@@ -31,8 +39,7 @@ backpressure the pipeline.
 ## 3. Find the job
 
 ```sh
-make scan
-# flinkit scan
+flinkit scan
 ```
 
 `scan` lists the running jobs with their ids and state. Copy the id of
@@ -41,8 +48,7 @@ make scan
 ## 4. Live triage — `inspect`
 
 ```sh
-make inspect JOB=<job-id>
-# flinkit inspect <job-id> --watch
+flinkit inspect <job-id> --watch
 ```
 
 This is the main event. The dashboard refreshes live; watch for:
@@ -63,8 +69,7 @@ warnings, `q` to quit.
 ## 5. One-shot verdicts — `bottleneck` and `doctor`
 
 ```sh
-make bottleneck JOB=<job-id>
-# flinkit bottleneck <job-id>
+flinkit bottleneck <job-id>
 ```
 
 `bottleneck` names the constrained operator and classifies the cause — here,
@@ -73,8 +78,7 @@ key-skew / a heavy keyed aggregation rather than a slow external sink.
 > **Screenshot:** `screenshots/bottleneck.png`
 
 ```sh
-make doctor
-# flinkit doctor
+flinkit doctor
 ```
 
 `doctor` runs health and configuration checks. On this cluster it flags
