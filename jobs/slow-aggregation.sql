@@ -24,7 +24,7 @@ CREATE TABLE orders (
   'fields.amount.max'  = '1000'
 );
 
-CREATE TABLE rollup (
+CREATE TABLE orders_rollup (
   window_start TIMESTAMP(3),
   user_id      BIGINT,
   orders       BIGINT,
@@ -33,7 +33,7 @@ CREATE TABLE rollup (
   'connector' = 'blackhole'
 );
 
-INSERT INTO rollup
+INSERT INTO orders_rollup
 SELECT
   window_start,
   user_id,
