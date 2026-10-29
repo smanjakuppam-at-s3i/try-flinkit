@@ -29,12 +29,15 @@ make submit
 ```
 
 The SQL client runs [`jobs/slow-aggregation.sql`](jobs/slow-aggregation.sql),
-submits the streaming `INSERT` to the session cluster, prints a **job id**, and
+submits the streaming `INSERT` to the session cluster, prints a job id, and
 exits. The job keeps running on the cluster.
 
-The job floods a 5-second tumbling `COUNT`/`SUM` keyed by a 500k-cardinality
-`user_id` at 200k rows/sec — enough to build real keyed state and, often, to
-backpressure the pipeline.
+The job runs a 5-second tumbling `COUNT`/`SUM` keyed by a 500k-cardinality
+`user_id` at 200k rows/sec on a **deliberately small TaskManager**. That builds
+far more RocksDB state than it can checkpoint in time — so this isn't a
+throughput problem, it's an **under-provisioned job that fails its checkpoints
+and restart-loops.** A very common, very real production failure — and exactly
+what flinkit is built to explain.
 
 ## 3. Find the job
 
@@ -42,59 +45,60 @@ backpressure the pipeline.
 flinkit scan
 ```
 
-`scan` lists the running jobs with their ids and state. Copy the id of
-`orders-rollup` for the next steps.
+`scan` lists the running jobs with their ids and state. You'll see
+`orders-rollup`. The commands below take either the job **id** or its **name**,
+so you can just use `orders-rollup`.
 
 ## 4. Live triage — `inspect`
 
 ```sh
-flinkit inspect <job-id> --watch
+flinkit inspect orders-rollup --watch
 ```
 
 This is the main event. The dashboard refreshes live; watch for:
 
-- **operators** — the keyed aggregation climbing toward 100% *busy*, and the
-  source showing *backpressure* when the aggregation can't keep up.
-- **checkpoints** — duration and state size growing as keyed state accumulates
-  (RocksDB backend).
-- **i/o** — throughput (records/sec) once two snapshots are in.
-- **bottleneck** — the constrained operator called out at the bottom.
+- **checkpoints** — a climbing failure count (e.g. `4✓ 39✗`) with a huge average
+  duration (tens of seconds), and a `cp N failed … Asynchronous task checkpoint
+  failed` line with the correlated log underneath.
+- **restarts** — ticking up (the job can't complete a checkpoint, so it keeps
+  failing over), with a `last failure … FlinkRuntimeException` line.
+- **findings** — `HIGH DOC-CKPT-001` (checkpoints failing) and
+  `MEDIUM DOC-STAB-001` (repeated restarts) called out inline.
+- **bottleneck: none** — a teaching point: the job *isn't* backpressured, so
+  there's no choke point. Its problem is checkpointing/stability, not throughput
+  — and flinkit says so rather than inventing a bottleneck.
 
 Press `c` to expand the **config** panel (parallelism, checkpoint interval,
-state backend, TM memory). Press `l` to fold/unfold logs, `w` to filter to
-warnings, `q` to quit.
+state backend, TM memory — note the small heap/managed memory driving the
+failures). Press `l` to fold/unfold logs, `w` to filter to warnings, `q` to quit.
 
 > **Screenshot:** `screenshots/inspect.png`
 
-## 5. One-shot verdicts — `bottleneck` and `doctor`
-
-```sh
-flinkit bottleneck <job-id>
-```
-
-`bottleneck` names the constrained operator and classifies the cause — here,
-key-skew / a heavy keyed aggregation rather than a slow external sink.
-
-> **Screenshot:** `screenshots/bottleneck.png`
+## 5. One-shot verdict — `doctor`
 
 ```sh
 flinkit doctor
 ```
 
-`doctor` runs health and configuration checks. On this cluster it flags
-**`DOC-CFG-003`** — RocksDB incremental checkpoints are disabled, so every
-checkpoint re-uploads full state. (The demo sets `state.backend.incremental:
-false` on purpose so you can see a config finding.) Depending on load you may
-also see checkpoint or backpressure findings.
+`doctor` runs the health checks and ranks the findings:
+
+- **`HIGH DOC-CKPT-001`** — *Checkpoints are failing; the job cannot recover
+  cleanly from failure.* Select it for the detail: the target job id, the
+  evidence (`N checkpoint(s) have failed`), a fix, and a docs link.
+- **`MEDIUM DOC-STAB-001`** — *The job has restarted; repeated restarts point to
+  an unstable pipeline.*
 
 > **Screenshot:** `screenshots/doctor.png`
 
-## 6. Experiment
+## 6. Experiment — make the diagnosis change
 
-- Raise `rows-per-second` in the SQL file and re-submit to push harder; lower it
-  to let the job catch up and watch backpressure disappear.
-- Flip `state.backend.incremental` to `true` in `docker-compose.yml`, restart
-  (`make down && make up && make submit`), and confirm `DOC-CFG-003` clears.
+- **Fix it:** give the TaskManager more memory (raise `taskmanager.memory.*` /
+  the managed-memory fraction in `docker-compose.yml`) and/or lower
+  `rows-per-second` in the SQL, then `make down && make up && make submit`.
+  Watch the checkpoints start succeeding and `DOC-CKPT-001` / `DOC-STAB-001`
+  clear.
+- **Make it worse:** raise `rows-per-second` and resubmit — checkpoints fail
+  faster and restarts climb quicker.
 
 ## 7. Tear down
 

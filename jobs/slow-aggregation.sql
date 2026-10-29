@@ -1,13 +1,13 @@
 -- try-flinkit demo job: a high-volume keyed windowed aggregation.
 --
 -- `datagen` floods orders at 200k rows/sec into a 5-second tumbling
--- COUNT/SUM keyed by a high-cardinality user_id. That builds large keyed
--- RocksDB state and exercises checkpointing, and at this rate the pipeline
--- can't always keep up — so flinkit sees real throughput, checkpoint, and
--- (under load) backpressure signals to diagnose.
+-- COUNT/SUM keyed by a high-cardinality user_id. That builds more keyed RocksDB
+-- state than the (deliberately small) TaskManager can checkpoint in time, so
+-- checkpoints fail and the job restart-loops — the realistic under-provisioned
+-- failure flinkit diagnoses (DOC-CKPT-001 / DOC-STAB-001).
 --
--- Tune the pressure: raise 'rows-per-second' to push harder, or lower it to
--- let the job keep up.
+-- Tune it: lower 'rows-per-second' (and/or give the TM more memory in
+-- docker-compose.yml) to let checkpoints succeed; raise it to fail faster.
 
 SET 'pipeline.name' = 'orders-rollup';
 

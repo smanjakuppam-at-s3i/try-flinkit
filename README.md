@@ -33,10 +33,9 @@ make submit    # submit the example job
 # Point flinkit at this repo's config (once per shell) so it finds the cluster:
 export FLINKIT_CONFIG=$PWD/flinkit.config.yaml
 
-flinkit scan                       # list the job — copy its id
-flinkit inspect <job-id> --watch   # live triage (the main event)
-flinkit doctor                     # health + configuration findings
-flinkit bottleneck <job-id>        # where it's constrained, and why
+flinkit scan                            # list the job
+flinkit inspect orders-rollup --watch   # live triage (the main event; by name or id)
+flinkit doctor                          # ranked health findings
 ```
 
 When you're done:
@@ -53,25 +52,27 @@ make down      # stop the cluster and wipe its state
 
 ## What you'll see
 
-The example job ([`jobs/slow-aggregation.sql`](jobs/slow-aggregation.sql)) is a
-high-cardinality 5-second tumbling aggregation fed by `datagen` at 200k
-rows/sec. That combination gives flinkit something real to find:
+The example job ([`jobs/slow-aggregation.sql`](jobs/slow-aggregation.sql)) runs a
+high-cardinality 5-second tumbling aggregation fed by `datagen` at 200k rows/sec
+on a **deliberately small TaskManager**. It builds more RocksDB state than it can
+checkpoint in time, so it **fails its checkpoints and restart-loops** — a common,
+realistic "under-provisioned streaming job" failure that flinkit explains:
 
-- **`inspect`** — a live dashboard: per-operator busy/backpressure, throughput,
-  checkpoint duration and state size, and a called-out bottleneck.
-- **`bottleneck`** — pinpoints the constrained operator and classifies the
-  cause (e.g. key-skew on the keyed aggregation).
-- **`doctor`** — flags that RocksDB **incremental checkpoints are disabled**
-  (`DOC-CFG-003`) — the cluster is configured that way on purpose here, so you
-  can see a configuration finding fire.
+- **`inspect`** — a live dashboard: climbing checkpoint failures and restart
+  count, the checkpoint-failure reason with a correlated log line, the last
+  failover exception, and the findings called out inline. (`bottleneck: none` —
+  the job isn't backpressured; its problem is checkpointing, not throughput.)
+- **`doctor`** — ranks the findings: `HIGH DOC-CKPT-001` (checkpoints failing,
+  the job can't recover) and `MEDIUM DOC-STAB-001` (repeated restarts), each with
+  evidence, a fix, and a docs link.
 
 ### Screenshots
 
 > _Captured from a live run — see [`screenshots/`](screenshots/)._
 
-| `flinkit inspect` (live) | `flinkit doctor` | `flinkit bottleneck` |
-|---|---|---|
-| ![inspect](screenshots/inspect.png) | ![doctor](screenshots/doctor.png) | ![bottleneck](screenshots/bottleneck.png) |
+| `flinkit inspect orders-rollup --watch` | `flinkit doctor` |
+|---|---|
+| ![inspect](screenshots/inspect.png) | ![doctor](screenshots/doctor.png) |
 
 For a narrated, step-by-step tour of what each panel is telling you, read
 **[walkthrough.md](walkthrough.md)**.
